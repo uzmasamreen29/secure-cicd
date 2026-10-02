@@ -55,7 +55,7 @@ jobs:
           ignore-unfixed: true
           severity: 'CRITICAL'
 
-      # Step C: Generate SBOM directly via Syft CLI (no upload conflict)
+      # Step C: Generate SBOM directly via Syft CLI
       - name: Generate CycloneDX SBOM
         run: |
           syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest -o cyclonedx-json=sbom.cyclonedx.json
