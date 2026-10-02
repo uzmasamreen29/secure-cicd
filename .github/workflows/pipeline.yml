@@ -50,12 +50,14 @@ jobs:
           ignore-unfixed: true
           severity: 'CRITICAL'
 
+     # Step C: Software Bill of Materials (SBOM) Generation via Syft
       - name: Generate CycloneDX SBOM with Syft
         uses: anchore/sbom-action@v0.15.8
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           format: cyclonedx-json
           output-file: sbom.cyclonedx.json
+          upload-artifact: false
 
       - name: Sign Container Image Digest
         env:
