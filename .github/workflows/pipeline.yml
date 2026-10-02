@@ -23,6 +23,9 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.5.0
 
+      - name: Install Syft CLI
+        uses: anchore/sbom-action/download-syft@v0.15.8
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -33,6 +36,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Step A: Build and push the image
       - name: Build and Push Docker Image
         id: build-and-push
         uses: docker/build-push-action@v5
@@ -41,6 +45,7 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
+      # Step B: Vulnerability Gate via Trivy
       - name: Scan Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
@@ -50,15 +55,12 @@ jobs:
           ignore-unfixed: true
           severity: 'CRITICAL'
 
-     # Step C: Software Bill of Materials (SBOM) Generation via Syft
-      - name: Generate CycloneDX SBOM with Syft
-        uses: anchore/sbom-action@v0.15.8
-        with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          format: cyclonedx-json
-          output-file: sbom.cyclonedx.json
-          upload-artifact: false
+      # Step C: Generate SBOM directly via Syft CLI (no upload conflict)
+      - name: Generate CycloneDX SBOM
+        run: |
+          syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest -o cyclonedx-json=sbom.cyclonedx.json
 
+      # Step D: Cryptographic Signing with Cosign
       - name: Sign Container Image Digest
         env:
           IMAGE_DIGEST: ${{ steps.build-and-push.outputs.digest }}
@@ -66,6 +68,7 @@ jobs:
           cosign sign --yes \
             "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${IMAGE_DIGEST}"
 
+      # Step E: Cryptographically Sign and Attach SBOM Attestation
       - name: Sign & Attach SBOM Attestation
         env:
           IMAGE_DIGEST: ${{ steps.build-and-push.outputs.digest }}
